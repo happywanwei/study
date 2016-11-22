@@ -1,0 +1,7 @@
+#!/bin/bash
+x=1999
+echo $x
+let "x= $x + 1"
+echo $x
+x="Olympic'"$x
+echo $x

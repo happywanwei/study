@@ -1,0 +1,168 @@
+# Hey Emacs, this Makefile is in -*- makefile -*- mode!
+
+# If we are building for elinux, then define ELINUX
+ifeq (.target_elinux,$(wildcard .target_*))
+ELINUX=1
+endif
+
+# If we are building for cris (Linux/CRIS), then define CLINUX
+ifeq (.target_clinux,$(wildcard .target_*))
+CLINUX=1
+endif
+
+SUBDIRS += dummy
+
+###########################################################################
+
+ifdef ELINUX
+# This is for gcc-cris & Co. of R25 or higher.  Get it; don't
+# use older versions or R25 without glibc installed.
+
+# Without "-melinux", the compiler will not get the right
+# include-files and have the right defines etc. so it should be
+# seen as part of CC rather than CFLAGS.
+CC  = gcc_cris -melinux
+CPP = gcc_cris -melinux -E
+CXX = gcc_cris -melinux -xc++
+
+LDFLAGS = -s -symbolic
+
+TARGET_TYPE = elinux
+CRIS        = 1
+endif
+
+ifdef CLINUX
+# Same as ELINUX but with different options (to build as ELF)
+# Linux/CRIS does only support statically linked exes currently
+# so use -static and not -symbolic
+
+CC  = gcc_cris -mlinux -DCRISMMU
+CPP = gcc_cris -mlinux -DCRISMMU -E
+CXX = gcc_cris -mlinux -DCRISMMU -xc++
+
+LDFLAGS = -s -static
+
+TARGET_TYPE = clinux
+CRIS        = 1
+endif
+
+ifdef CRIS
+
+# This is for building for the cris architecture
+
+OBJCOPY = objcopy-cris
+LD      = ld-cris
+AR      = ar-cris
+RANLIB  = ranlib-cris
+
+TARGET_ENV = "\$$EROOT"
+ifdef EROOT
+ifndef prefix
+prefix = $(EROOT)
+endif # prefix
+endif # EROOT
+run_prefix = 
+
+else
+
+# This is for building for the local host
+
+RANLIB = ranlib
+
+TARGET_TYPE = host
+TARGET_ENV = "\$$HROOT"
+ifdef HROOT
+ifndef prefix
+prefix = $(HROOT)
+endif # prefix
+endif # HROOT
+run_prefix = $(prefix)
+
+endif
+
+INSTALL = install
+
+###########################################################################
+
+# Define CFLAGS to something sensible
+CFLAGS    = -O2 -Wall
+
+ifdef CRIS
+# Sorry; only -Dlinux is built-in.  __linux__ will be defined in
+# gcc-cris & Co R26.
+CFLAGS   += -D__linux__ -DELINUX
+else
+# We want to be able to use gdb with full debug info for host compiled programs
+CFLAGS   += -g
+endif
+
+# Can't use -pedantic due to use of long long in standard includes :(
+CXXFLAGS = $(CFLAGS) -Wno-ctor-dtor-privacy -ansi -pipe -fcheck-new
+
+# An elinux program is expected to be compiled like this:
+#  $(CC) $(CFLAGS) -c my_file.c
+# I don't know if C++ works as "expected" in elinux, but in
+# theory it could be compiled like this:
+#  $(CXX) $(CXXFLAGS) -c my_file.cc
+# And all objects should be linked like this:
+#  $(CC) $(LDFLAGS) -o my_program my_file.o possibly_other_objects.o
+
+ifdef CRIS
+ifdef USE_UCLIBC
+UCLIBC    = 1
+CC       += -muclibc=$(prefix)
+CPP      += -muclibc=$(prefix)
+CXX      += -muclibc=$(prefix)
+endif
+endif
+
+#--------------------------------------------------------------------------
+# The following are a set of standard rules to try to make sure we build
+# and install the correct files.
+
+all:	pre-all-recurse all-recurse
+
+# Make eroot a dependency of all install rules to make sure the $(prefix)
+# variable is set (to $HROOT or $EROOT depending on whether this
+# is a build for the host or elinux).
+depend:		eroot pre-depend-recurse depend-recurse
+install:	eroot pre-install-recurse install-recurse
+
+uninstall:	pre-uninstall-recurse uninstall-recurse
+
+clean:	pre-clean-recurse clean-recurse
+
+# Used to change the target for the build.
+elinux:	pre-elinux-recurse elinux-recurse
+clinux:	pre-clinux-recurse clinux-recurse
+host:	pre-host-recurse host-recurse
+elinux clinux host:
+	@if test ! -f .target_$@ ; then \
+	  NO_SUBDIR_RECURSION=1 $(MAKE) --no-print-directory clean; \
+	fi
+	rm -rf .target_*
+	touch .target_$@
+
+# These are hooks that can be used to have rules executed before the
+# recursive rules are checked
+pre-all-recurse pre-depend-recurse pre-install-recurse pre-uninstall-recurse pre-clean-recurse pre-elinux-recurse pre-clinux-recurse pre-host-recurse:
+
+# Recursive rules to make all, depend, install, uninstall, clean, elinux,
+# clinux and host
+all-recurse depend-recurse install-recurse uninstall-recurse clean-recurse elinux-recurse clinux-recurse host-recurse:
+	@if test $(NO_SUBDIR_RECURSION)0 -eq 0 ; then \
+	  for subdir in $(SUBDIRS); do \
+	    if test -d $$subdir ; then \
+	      target=`echo $@ | sed 's/-recurse//'`; \
+	      echo Making $$target in $$subdir; \
+	      (cd $$subdir && $(MAKE) $$target) || exit 1; \
+	    fi; \
+	  done; \
+	fi
+
+eroot:
+ifndef prefix
+	@echo "You must define the environment variable $(TARGET_ENV) to where your $(TARGET_TYPE)"
+	@echo "applications should be installed!"
+	@exit 1
+endif

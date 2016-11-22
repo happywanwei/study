@@ -1,0 +1,4 @@
+#!/bin/bash
+#the example of shell program
+#no variant
+echo "hello world"

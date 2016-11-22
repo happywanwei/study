@@ -1,0 +1,12 @@
+# init_env: Sets some environment variables
+# Run using '. init_env' or 'source init_env'
+
+export DEVTREE_ROOT=`pwd`
+
+#export AX_PRODUCTDIR=$DEVTREE_ROOT
+export EROOT=$DEVTREE_ROOT/eroot
+export HROOT=$DEVTREE_ROOT/hroot
+#export ELINUXDIR=$DEVTREE_ROOT/elinux
+export ELIBSDIR=$DEVTREE_ROOT/libs
+export APPS=$DEVTREE_ROOT/apps
+#export AX_PACKAGES=$DEVTREE_ROOT/packages

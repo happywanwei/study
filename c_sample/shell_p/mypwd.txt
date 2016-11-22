@@ -1,0 +1,4 @@
+#!/bin/bash
+#define mypwd  instead of pwd
+Str=¡°Current directory is `pwd`¡±
+Echo $str

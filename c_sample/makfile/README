@@ -1,0 +1,428 @@
+
+Bluetooth Driver for Linux Kernel v2.0 and v2.2
+-----------------------------------------------
+
+These files are work in progress. 
+
+
+========================================================================
+
+
+1) How to build and install the  Bluetooth Stack
+----------------------------------------------------
+
+# Unpack the archive:
+
+tar xvfz <name of archive>
+
+# Create the bluetooth stack module and all applications (both for use
+  with the kernel version of the stack and the user mode version):
+
+cd bluetooth
+source init_env
+
+(See section 6 on how to compile for different bluetooth HW)
+
+make
+
+# Install the applications in /usr/local/bin and the SDP configuration
+  file in /etc (must be done as root):
+
+make install
+
+# If the BT device nodes have not been created previously then do 
+  (as root):
+
+make devs
+
+# Insert the module into the kernel (must be done as root):
+
+insmod src/bt.o
+
+# To get debug messages in kernel start another window and issue:
+
+tail -f /var/log/messages 
+
+(or whatever file is set in /etc/syslog.conf)
+
+========================================================================
+
+
+2) Bluetooth Daemon application (btd) 
+------------------------------------
+
+     Both short and long options may be used whatever suits best.
+
+     syntax:  ./btd [options]
+	  
+     options: 
+
+              -u, --physdev <uart device>
+              sets which uart device that will be used by the stack
+              default: ttyS2
+	      
+              -b, --btdev <bluetooth device>
+              sets which bluetooth device that will be used from 
+	      application
+              default: ttyBT0
+
+              -d, --local <local ip>
+              Sets local ipadress in pppd options
+
+              -D, --remote <remote ip>
+              Sets remote ipaddress in pppd options
+
+              -e, --modem
+              Use modem emulation (used when emulate modem in windows 
+	      dialup. 
+              Can also be done from command line mode. 
+	      default: on
+	    
+              -m, --cmdmode
+              enters command line mode
+              default: skip command line mode
+ 
+              -n, --local-name
+              prefix used for the local bluetooth device name
+              default: nothing
+
+              "-r server", --server
+	      sets application role to server
+	      "-r client", --client
+              sets application role to client)
+              default: server
+
+              -R, --reset
+              reset bluetooth hardware before use
+              default: no reset
+
+              -s, --speed <speed>
+              sets uart speed
+              9600, 19200, 38400, 57600, 115200, 230400, 460800
+              default: 115200 baud
+                 
+	      -S, --unixsock use local unix socket as phys device
+	      Used together with hci emulation to test stack locally
+	      (usermode stack only)
+	      
+	      -T, --tcpsock <ipaddr:port> use tcp socket as phys device.
+	      Used together with hci emulation to test stack over any 
+	      TCP/IP based network
+	      Server listens on <:port>, client tries to connect to 
+	      <ipaddr:port>. (usermode stack only)
+
+	      
+     e.g if using module at 460800 baud and acting server
+     ./btd --speed 460800
+
+     if acting as a client with a command line interface
+     ./btd -r client
+
+     if using non default devices
+     ./btd --physdev /dev/ttyS2 --btdev /dev/ttyBT3 [options...]
+
+     if using the stack in usermode over a local UNIX socket.
+     Do the following in separate windows
+     Server : ./btd --cmdmode --unixsock
+     Client : ./btd --cmdmode --unixsock --client
+
+     if using the stack in usermode over a TCP socket.
+     Do the following on separate computers connected to the 
+     same network
+     Server : ./btd --cmdmode --tcpsock <:port> 
+     Client : ./btd --cmdmode --tcpsocket <ipaddr:port> --client
+
+=======================================================================
+
+
+3) What do the command menu options do ?
+----------------------------------------
+
+inq (inquiry scan)
+   Performs an inquiry to see what other devices that are present
+
+rf_conn <xx:xx:xx:xx:xx:xx> <srv ch> <line>
+   Connect to BT device with BD_ADDR <xx:xx:xx:xx:xx:xx> on line 
+   <line> with RFCOMM server channel <srv channel> <profile (not used)>
+
+rf_send <nbr bytes> <nbr repeats> <line>
+   Just send chunks of data. <nbr bytes> are sent <nbr repeats> 
+   times. Data is sent using the RFCOMM protocol layer
+
+rf_disc <line>
+    Disconnect the rfcomm session that is connected on this line
+
+rf_wait <line>
+    Waits for an rfcomm connection on this line
+
+me <1/0>
+ 
+  Turn modem emulation on/off. Modem emulation is used on the 
+  server side to fool a windows client that it is talking to a 
+  modem. The emulation answers OK to all AT*\r\n sequences. 
+  When it receives ATD*\r\n it quits and let data through to ppp.
+
+setbd <xx:xx:xx:xx:xx:xx>
+ 
+  Set the BT device BD_ADDR to <xx:xx:xx:xx:xx:xx>
+  (Currently Ericsson specific)
+
+readbd
+ 
+  Get the BT device BD_ADDR
+  
+reset
+
+  Reset the BT device.
+
+ppp
+ 
+  Quit btd and start ppp to the peer instead.
+  
+quit
+
+  Just quit.
+
+========================================================================
+
+
+4) How to setup a session between two units
+--------------------------------------------
+
+Server side:
+
+1. btd --reset --speed 115200
+
+Client side:
+
+1. btd --reset --speed 115200 -r client
+2. Connect to the other unit by doing
+   rf_conn <bd address> <srv ch>
+
+========================================================================
+
+
+5) How to use the stack in user mode instead of in the kernel
+-------------------------------------------------------------
+
+/*
+ * THE USERMODE STACK SHOULD ONLY BE USED FOR DEVELOPMENT AND
+ * TESTING OF BASIC STACK FUNCTIONALITIES AND DOES NOT PROVIDE
+ * THE FULL STACK FUNCTIONALITIES (blocking calls, multiple lines 
+ * etc etc).
+ */ 
+
+1) Build the applications according to the instructions above.
+
+2) Run btduser (as root) with the same options as with the standard
+   btd application (see above).
+
+If something isn't working look in /var/log/messages or whatever file is
+syslogger is set to use (see /etc/syslog.conf) 
+
+*** NOTE -- pppd must support running on pty:s (version >= 2.3.7) ***
+
+========================================================================
+
+
+6) How do I setup the stack for different bluetooth hardware
+------------------------------------------------------------
+
+There are two files that needs to be changed
+
+Kernel : btconfig.h, set HW_CURRENT to whatever you are using
+
+Usermode app : btd.c, set HW_CURRENT to whatever you are using 
+
+** Note ** 
+If running usermode stack it is only necessary to change in btconfig.h
+
+========================================================================
+
+
+7) How to setup a session without any bluetooth hardware
+--------------------------------------------------------
+
+To make the stack work without any hardware HCI_EMULATION must be 
+switched on in the file btconfig.h and the stack must be recompiled.
+You will see a note in the debug messages when starting the stack if hci
+emulation really is used or not.
+
+********
+* Note *
+********
+
+The HCI emulation as of today simply converts some hci commands to the 
+corresponding events and simply forwards all acl/sco data.
+If you get messages from the stack that something fails when initiating 
+the stack it is because those hci commands are not supported in the 
+hci emulator.
+Anyone that wants are welcome to improve it and send us a patch. For 
+example, there could be network delays/ packet losses included and 
+different kinds of hardware can be simulated.
+
+There are three ways depending on how you want to test the stack.
+The first one works both when running the stack in kernel and when 
+running it in user mode. The other two (2 and 3 below) works only 
+in user mode.
+
+See above for details on command options
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+7.1) Using a serial cable (null modem)
+
+Connect 2 Linux PC with a null modem cable, and start the btd 
+application as server as one side and btd as client on the other side.
+
+Server side:
+1. start btd with the option
+   btd --physdev <phys device> --speed <speed> --cmdmode 
+   --local <local ip> --remote <remote ip>
+
+Client side:
+1. start btd with the option
+   btd --physdev <phys device> --speed <speed> --client --hwinit none
+
+2. When the menu shows and server also are setup and initialized type:
+   rf_conn 11:22:33:44:55:66 <srv ch> <line> 
+   (BD address is ignored)
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+7.2) Using a local unix socket on one computer
+
+Server side:
+1. btd --cmdmode --unixsock
+
+Client side:
+1. btd --client --unixsock
+
+2. When the menu shows and server also are setup and initialized type:
+   rf_conn 11:22:33:44:55:66 <srv ch> <line>
+   (BD address is ignored)
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+7.3) Using a network tcp socket between two computers
+
+     if using the stack in user mode over a TCP socket.
+     Do the following on separate computers connected to a network
+
+Server side:
+1. btd --tcpsock <:port>
+ 
+Client side:
+1. Client: ./btd --tcpsocket <ipaddr:port> --client
+
+2. When the menu shows and server also are setup and initialized type:
+   rf_conn 11:22:33:44:55:66 <srv ch> <line> 
+   (BD address is ignored)
+
+========================================================================
+
+
+8) It does not work, what am I doing wrong? 
+--------------------------------------------
+
+FIXME --  add FAQ 
+
+o If you are having troubles with trashed data on the UART please look 
+  at http://developer.axis.com/download/bluetooth/uart_problems
+
+o ...
+
+For debug when running in kernel look in /var/log/messages, 
+/var/log/debug or whatever file is specified in /etc/syslog.conf
+
+If you think you have found a bug please switch on all debug in 
+btdebug.h and send the logs to bluetooth-dev@axis.com together with a 
+description of the problem.
+
+=======================================================================
+
+9) OLD RELEASES
+
+========================================================================
+
+
+Nov 15 2000
+
+*** Bug fixes after the Unplugfest 4 ***
+
+- Corrected C/R-bit in RFCOMM.
+- Corrected browsing in SDP.
+- Added all unplugtests in rfcomm and l2cap.
+- Misc fixes in all layers.
+
+*** Other ***
+
+- Started restructuring of btd to make the application hardware 
+  independent and more readable.
+- Restructuring will also be done in hci to make it hardware 
+  independent too.
+- Added connect indication and disconnect indication in bluetooth.c.
+- Added connection ID consisting of |PSM 16 bits|layer specific 16 bits| 
+  The layerspecific field in RFCOMM is | line 8 bits | dlci 8 bits |.
+  In the other layers are the connection ID not used at all (yet).
+
+-------------------------------------------------------------------------
+
+Oct 30 2000
+
+Finally, a new release!
+
+There has been quite a few changes and it is hard to include everything
+in this text. However, we will try to make a quick introduction of the 
+new functionality.
+
+
+*** Kernel Stack ***
+
+- We now support the use of several tty:s (currently 7, ttyBT0-ttyBT6) 
+  and the control of the stack has been moved to a dedicated tty 
+  called ttyBTC (minor 7)
+- Improved interface between user mode tty and kernel.
+- More ioctls for HCI commands
+- Improved SDP which now uses a user mode database for queries.
+- Added functionality for choosing different HW (init stuff)
+- Added scheduling of cmd queueing for USB
+- Lots of bug fixes
+
+*** Comment ***
+
+    As of today we have no client functionality in SDP due to changes
+    in the design. However, as server Serial/LAN/DialUP profile is 
+    supported. This will be fixed soon.
+
+*** User Mode Applications ***
+
+- New SDP server database application using XML files. 
+  See /apps/sdp_server/README for details.
+- Command line history
+- Now pppd works together with the user mode stack (using pty:s)
+- Using syslog for most debug (see /var/log/messages)
+- Added functionality to run usermode stack on both a local UNIX socket
+  and on a network socket (used with hardware emulation, HCI_EMULATION)
+
+Please let us know if there are any unclear issues or errors in this 
+README. Comments are appreciated and if there are someone that feels 
+an urge of making it more complete please contact us or send us a text 
+fragment and we will happily include it !
+
+There are still patches left to include but due to heavy workload we 
+have not had time to add them all. However, in the future if a patch 
+is sent to us reasonably fast (within 2 weeks) after a new release we 
+should be able to merge it in the stack.
+
+Finally, we would also like to thank all contributors on the stack for 
+comments and patches etc. Once we get our open CVS up and running this 
+stack should be very useful for any bluetooth developer !!
+
+Keep up the good work !
+
+Best regards 
+Bluetooth Team
+
+========================================================================
+========================================================================

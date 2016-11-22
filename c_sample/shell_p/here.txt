@@ -1,0 +1,10 @@
+#!/bin/bash 
+
+passwd=¡°fang@263.net" 
+ftp -n localhost <<FTPFTP
+user anonymous $passwd 
+binary 
+bye 
+FTPFTP 
+
+exit 0 
