@@ -1,0 +1,5 @@
+PROJECT (HELLO)
+INCLUDE_DIRECTORIES(/home/wwan001/code/cmake/include/hello)
+LINK_DIRECTORIES(/home/wwan001/code/cmake/lib)
+ADD_EXECUTABLE(main main.c)
+TARGET_LINK_LIBRARIES(main hello)
